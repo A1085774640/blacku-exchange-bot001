@@ -1,0 +1,122 @@
+# Telegram 黑U汇率机器人
+
+这是一个完整的Telegram机器人解决方案，提供黑U汇率查询、利润计算和在线下单功能。
+
+## 功能亮点
+- 实时黑U汇率查询
+- 自动利润计算器
+- 完整的在线下单流程
+- 订单生成与支付指引
+- 地址格式验证
+
+## 快速部署指南
+
+### 1. 准备工作
+1. 在Telegram中联系 [@BotFather](https://t.me/BotFather)
+2. 创建新机器人：发送 `/newbot`
+3. 输入机器人名称（如 `BlackUExchangeBot`）
+4. 复制生成的API Token（格式如 `123456:ABC-DEF1234ghIkl`）
+
+### 2. 设置GitHub仓库
+1. **Fork本仓库**：点击右上角 "Fork" 按钮
+2. **编辑配置文件**：
+   - 打开 `bot.py` 文件
+   - 找到 `TOKEN = "YOUR_BOT_TOKEN"`
+   - 替换为您的实际Token
+3. **提交更改**：点击 "Commit changes"
+
+### 3. 免费云部署（PythonAnywhere）
+1. 访问 [PythonAnywhere](https://www.pythonanywhere.com/)
+2. 注册免费账号
+3. 登录后进入 "Files" 标签页
+4. 点击 "Upload a file" 上传所有文件：
+   - `bot.py`
+   - `requirements.txt`
+   - `README.md`
+5. 打开 "Consoles" 标签页 → 创建 "Bash" 控制台
+6. 安装依赖：
+   ```bash
+   pip install -r requirements.txt
+   ```
+7. 运行机器人：
+   ```bash
+   python bot.py
+   ```
+
+### 4. 本地运行（测试用）
+1. 安装 [Python](https://www.python.org/downloads/)
+2. 下载仓库文件（Code → Download ZIP）
+3. 解压文件，打开命令提示符/终端
+4. 进入项目目录：
+   ```bash
+   cd blacku-exchange-bot
+   ```
+5. 安装依赖：
+   ```bash
+   pip install -r requirements.txt
+   ```
+6. 运行机器人：
+   ```bash
+   python bot.py
+   ```
+
+## 使用机器人
+1. 在Telegram中搜索您的机器人
+2. 发送 `/start` 命令
+3. 使用菜单：
+   - **黑U汇率**：查看汇率表并计算利润
+   - **在线下单**：完成购买流程
+
+## 功能演示
+### 黑U汇率计算
+```
+用户: /start
+机器人: 显示主菜单
+
+用户: 点击"黑U汇率"
+机器人: 显示汇率表 + "点击计算黑U汇率"按钮
+
+用户: 点击"点击计算黑U汇率"
+机器人: "请输入您要购买的数量（不支持小数位）"
+
+用户: 输入 "200"
+机器人: "购买数量: 200U\n适用汇率: 1.5\n预期利润: 300.00U"
+```
+
+### 在线下单流程
+```
+用户: /start → 点击"在线下单"
+机器人: "请输入您要购买的数量（不支持小数位）"
+
+用户: 输入 "100"
+机器人: 显示订单详情 + "取消下单/确认订单"按钮
+
+用户: 点击"确认订单"
+机器人: "请输入您的USDT（TRC20)接收地址"
+
+用户: 输入 "TAFvcKd9RQwWpF8EgdBF9dRtqcEQLqF7c3"
+机器人: 生成完整订单信息
+```
+
+## 自定义设置
+1. **修改汇率表**：编辑 `bot.py` 中的 `RATE_TABLE`
+2. **更新支付地址**：修改 `PAYMENT_ADDRESS`
+3. **添加新功能**：参考现有代码结构扩展
+
+## 维护与更新
+1. 修改代码后，重新上传到PythonAnywhere
+2. 在控制台中按 Ctrl+C 停止机器人
+3. 重新运行 `python bot.py`
+
+## 常见问题
+**Q: 机器人停止响应怎么办？**  
+A: PythonAnywhere免费账户需要每3个月登录一次，登录后重启机器人即可。
+
+**Q: 如何修改超时时间？**  
+A: 在PythonAnywhere控制台运行时，默认不会超时。如需修改订单超时，编辑代码中的相关逻辑。
+
+**Q: 如何添加更多货币支持？**  
+A: 扩展 `RATE_TABLE` 并修改相关计算逻辑。
+
+**Q: 订单数据会保存吗？**  
+A: 当前版本使用内存存储，重启后数据会丢失。如需持久化，建议添加数据库支持。
