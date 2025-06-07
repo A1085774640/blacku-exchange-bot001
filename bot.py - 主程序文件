@@ -1,1 +1,309 @@
 # blacku-exchange-bot001
+import logging
+import random
+from datetime import datetime
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import (
+    Application,
+    CommandHandler,
+    CallbackQueryHandler,
+    ContextTypes,
+    MessageHandler,
+    filters,
+    ConversationHandler
+)
+
+# 设置日志
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", 
+    level=logging.INFO
+)
+logger = logging.getLogger(__name__)
+
+# 机器人Token（从BotFather获取）
+TOKEN = "YOUR_BOT_TOKEN"
+
+# 对话状态
+CALCULATING, PLACING_ORDER, CONFIRMING_ORDER, ENTERING_ADDRESS = range(4)
+
+# 汇率表
+RATE_TABLE = {
+    (1, 99): 1.1,
+    (100, 199): 1.3,
+    (200, 499): 1.5,
+    (500, 999): 1.7,
+    (1000, 4999): 2.0
+}
+
+# 支付地址（实际使用时请替换）
+PAYMENT_ADDRESS = "TUPJUk6g7onqnD9xUVTYj7UKFMadXk8bFg"
+
+# ===== 主菜单 =====
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """发送主菜单"""
+    keyboard = [
+        [InlineKeyboardButton("黑U汇率", callback_data="blacku_rate")],
+        [InlineKeyboardButton("在线下单", callback_data="place_order")]
+    ]
+    
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await update.message.reply_text(
+        "欢迎使用黑U汇率机器人！请选择功能：",
+        reply_markup=reply_markup
+    )
+    return ConversationHandler.END
+
+# ===== 黑U汇率功能 =====
+async def show_blacku_rate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """显示黑U汇率界面"""
+    query = update.callback_query
+    await query.answer()
+    
+    # 构建汇率表文本
+    rate_text = "根据下单金额，对应汇率：\n➖➖➖➖➖➖➖➖➖➖➖\n"
+    for (min_val, max_val), rate in RATE_TABLE.items():
+        rate_text += f"金额：{min_val}～{max_val}U\t｜汇率：{rate}\n"
+    rate_text += "➖➖➖➖➖➖➖➖➖➖➖\n"
+    rate_text += "自动计算利润，例如输入：200"
+    
+    # 添加计算按钮
+    keyboard = [[InlineKeyboardButton("点击计算黑U汇率", callback_data="calculate_rate")]]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.edit_message_text(
+        text=rate_text,
+        reply_markup=reply_markup
+    )
+
+# ===== 启动汇率计算 =====
+async def start_calculate(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """启动汇率计算流程"""
+    query = update.callback_query
+    await query.answer()
+    
+    await query.edit_message_text(
+        text="请输入您要购买的数量（不支持小数位）：",
+        reply_markup=None
+    )
+    
+    return CALCULATING
+
+# ===== 处理汇率计算 =====
+async def calculate_profit(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """计算并显示利润"""
+    user_input = update.message.text
+    
+    try:
+        amount = int(user_input)
+        
+        # 查找适用汇率
+        applicable_rate = None
+        for (min_val, max_val), rate in RATE_TABLE.items():
+            if min_val <= amount <= max_val:
+                applicable_rate = rate
+                break
+        
+        if applicable_rate is None:
+            response = "❌ 金额超出范围，请输入1-4999之间的整数"
+        else:
+            profit = amount * applicable_rate
+            response = (
+                f"购买数量: {amount}U\n"
+                f"适用汇率: {applicable_rate}\n"
+                f"预期利润: {profit:.2f}U\n\n"
+                f"感谢使用!"
+            )
+    except ValueError:
+        response = "❌ 输入无效，请输入整数（如: 200）"
+    
+    await update.message.reply_text(response)
+    return ConversationHandler.END
+
+# ===== 启动在线下单 =====
+async def start_place_order(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """启动在线下单流程"""
+    query = update.callback_query
+    await query.answer()
+    
+    await query.edit_message_text(
+        text="请输入您要购买的数量（不支持小数位）：",
+        reply_markup=None
+    )
+    
+    return PLACING_ORDER
+
+# ===== 处理下单数量 =====
+async def process_order_quantity(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """处理订单数量并计算金额"""
+    user_input = update.message.text
+    
+    try:
+        amount = int(user_input)
+        context.user_data['order_quantity'] = amount
+        
+        # 查找适用汇率
+        applicable_rate = None
+        for (min_val, max_val), rate in RATE_TABLE.items():
+            if min_val <= amount <= max_val:
+                applicable_rate = rate
+                break
+        
+        if applicable_rate is None:
+            response = "❌ 金额超出范围，请输入1-4999之间的整数"
+            await update.message.reply_text(response)
+            return ConversationHandler.END
+        else:
+            profit = amount * applicable_rate
+            context.user_data['order_profit'] = profit
+            context.user_data['order_rate'] = applicable_rate
+            
+            keyboard = [
+                [InlineKeyboardButton("取消下单", callback_data="cancel_order")],
+                [InlineKeyboardButton("确认订单", callback_data="confirm_order")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            
+            await update.message.reply_text(
+                f"订单详情：\n"
+                f"购买数量: {amount}U\n"
+                f"适用汇率: {applicable_rate}\n"
+                f"您将收到: {profit:.2f}U\n\n"
+                f"请确认订单：",
+                reply_markup=reply_markup
+            )
+            
+            return CONFIRMING_ORDER
+    except ValueError:
+        await update.message.reply_text("❌ 输入无效，请输入整数（如: 200）")
+        return ConversationHandler.END
+
+# ===== 确认订单 =====
+async def confirm_order(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """确认订单并请求接收地址"""
+    query = update.callback_query
+    await query.answer()
+    
+    await query.edit_message_text(
+        text="请输入您的USDT（TRC20)接收地址：",
+        reply_markup=None
+    )
+    
+    return ENTERING_ADDRESS
+
+# ===== 取消订单 =====
+async def cancel_order(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """取消订单"""
+    query = update.callback_query
+    await query.answer()
+    
+    await query.edit_message_text(
+        text="订单已取消",
+        reply_markup=None
+    )
+    
+    return ConversationHandler.END
+
+# ===== 处理接收地址 =====
+async def process_receiving_address(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
+    """处理接收地址并生成订单"""
+    address = update.message.text
+    context.user_data['receiving_address'] = address
+    
+    # 简单验证地址格式（实际应使用更复杂的验证）
+    if not address.startswith("T") or len(address) < 25:
+        await update.message.reply_text("❌ 地址格式无效，请输入有效的TRC20地址")
+        return ConversationHandler.END
+    
+    # 生成订单号（时间戳+随机数）
+    order_id = f"{datetime.now().strftime('%Y%m%d%H%M%S')}{random.randint(1000, 9999)}"
+    
+    # 获取订单详情
+    quantity = context.user_data['order_quantity']
+    profit = context.user_data['order_profit']
+    rate = context.user_data['order_rate']
+    
+    # 构建订单消息
+    order_message = (
+        f"订单编号：{order_id}\n\n"
+        f"您会收到：{profit:.2f}U\n"
+        f"接收地址：请核对后6位\n"
+        f"{address[-6:]}\n"
+        f"➖➖➖➖➖➖➖➖➖➖➖➖\n"
+        f"支付金额：{quantity}U\n\n"
+        f"支付地址：\n{PAYMENT_ADDRESS}\n\n"
+        f"👆 点一下复制【支付地址 / 金额】\n"
+        f"⚠️ 注意金额【实到账金额必须一致】\n"
+        f"➖➖➖➖➖➖➖➖➖➖➖➖\n"
+        f"提示：\n"
+        f"▫️支付前，先核对支付地址后6位\n"
+        f"▫️订单支付超时为（15分钟）\n"
+        f"▫️请勿保存支付地址, 不定期更换\n"
+        f"▫️支付成功后等待60秒, 区块链读取到您支付的数据, 系统自动完成回调"
+    )
+    
+    await update.message.reply_text(order_message)
+    
+    # 清理用户数据
+    context.user_data.clear()
+    
+    return ConversationHandler.END
+
+# ===== 错误处理 =====
+async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    """记录错误"""
+    logger.error(msg="处理更新时出错:", exc_info=context.error)
+
+# ===== 主函数 =====
+def main() -> None:
+    """启动机器人"""
+    application = Application.builder().token(TOKEN).build()
+    
+    # 添加命令处理器
+    application.add_handler(CommandHandler("start", start))
+    
+    # 添加黑U汇率对话处理器
+    rate_conv_handler = ConversationHandler(
+        entry_points=[
+            CallbackQueryHandler(show_blacku_rate, pattern="^blacku_rate$"),
+            CallbackQueryHandler(start_calculate, pattern="^calculate_rate$")
+        ],
+        states={
+            CALCULATING: [MessageHandler(filters.TEXT & ~filters.COMMAND, calculate_profit)]
+        },
+        fallbacks=[CommandHandler("start", start)],
+        map_to_parent={
+            ConversationHandler.END: ConversationHandler.END
+        }
+    )
+    
+    # 添加在线下单对话处理器
+    order_conv_handler = ConversationHandler(
+        entry_points=[
+            CallbackQueryHandler(start_place_order, pattern="^place_order$")
+        ],
+        states={
+            PLACING_ORDER: [MessageHandler(filters.TEXT & ~filters.COMMAND, process_order_quantity)],
+            CONFIRMING_ORDER: [
+                CallbackQueryHandler(cancel_order, pattern="^cancel_order$"),
+                CallbackQueryHandler(confirm_order, pattern="^confirm_order$")
+            ],
+            ENTERING_ADDRESS: [MessageHandler(filters.TEXT & ~filters.COMMAND, process_receiving_address)]
+        },
+        fallbacks=[CommandHandler("start", start)],
+        map_to_parent={
+            ConversationHandler.END: ConversationHandler.END
+        }
+    )
+    
+    application.add_handler(rate_conv_handler)
+    application.add_handler(order_conv_handler)
+    
+    # 添加错误处理器
+    application.add_error_handler(error_handler)
+    
+    # 启动机器人
+    application.run_polling()
+
+if __name__ == "__main__":
+    main()
