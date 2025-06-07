@@ -21,7 +21,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # 机器人Token（从BotFather获取）
-TOKEN = "YOUR_BOT_TOKEN"
+TOKEN = " 7575688181:AAEVmoTcf_3TIxeOi2FCKljdHrOzhToPkxM"
 
 # 对话状态
 CALCULATING, PLACING_ORDER, CONFIRMING_ORDER, ENTERING_ADDRESS = range(4)
@@ -36,7 +36,7 @@ RATE_TABLE = {
 }
 
 # 支付地址（实际使用时请替换）
-PAYMENT_ADDRESS = "TUPJUk6g7onqnD9xUVTYj7UKFMadXk8bFg"
+PAYMENT_ADDRESS = "TEWmtXtvrcZxPGvDAypKbHVcAHWPpM1Gkh"
 
 # ===== 主菜单 =====
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
